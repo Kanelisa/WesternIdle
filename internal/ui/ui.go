@@ -151,6 +151,7 @@ type Panel struct {
 	Width, Height float64
 	Color         color.RGBA
 	Elements      []UIElement
+	UI            *UI
 }
 
 func (p *Panel) Draw(screen *ebiten.Image) {
@@ -161,12 +162,17 @@ func (p *Panel) Draw(screen *ebiten.Image) {
 }
 
 func (p *Panel) Layout() {
-	currentY := p.Y + 10 // отступ сверху
-	spacing := 8.0
+	// Если это центр-панель — не используем стандартный вертикальный layout
+	if p == p.UI.CenterPanel {
+		p.UI.layoutCenterTwoColumns()
+		return
+	}
+
+	currentY := p.Y + 10
+	spacing := 10.0
 
 	for _, el := range p.Elements {
 		if cat, ok := el.(*UICategory); ok {
-			// теперь currentY включает и хедер, и кнопки (если развернута)
 			currentY = cat.Layout(currentY)
 			currentY += spacing
 		}
@@ -357,6 +363,7 @@ func (ui *UI) initPanels() {
 		Width:  160,
 		Height: 600,
 		Color:  color.RGBA{60, 40, 20, 255},
+		UI:     ui,
 	}
 
 	mainBtn := &UIButton{
@@ -398,6 +405,7 @@ func (ui *UI) initPanels() {
 		Width:  160,
 		Height: 600,
 		Color:  color.RGBA{70, 45, 25, 255},
+		UI:     ui,
 	}
 
 	// ---------------- CENTER PANEL (Действия) ----------------
@@ -407,6 +415,7 @@ func (ui *UI) initPanels() {
 		Width:  400,
 		Height: 600,
 		Color:  color.RGBA{40, 25, 15, 255},
+		UI:     ui,
 	}
 
 	// ---------------- RIGHT PANEL (Ресурсы) ----------------
@@ -416,6 +425,7 @@ func (ui *UI) initPanels() {
 		Width:  900 - ui.LeftPanel.Width - ui.CenterPanel.Width - ui.LocationsPanel.Width,
 		Height: 600,
 		Color:  color.RGBA{50, 30, 15, 255},
+		UI:     ui,
 	}
 
 	// ---------------- INITIAL BUILD ----------------
@@ -938,9 +948,15 @@ func (c *UICategory) HandleClick(mx, my int) {
 		float64(my) >= c.Y && float64(my) <= c.Y+c.HeaderH {
 
 		c.Expanded = !c.Expanded
-		// Обновляем Layout панели, чтобы сдвинуть все заголовки
+
+		// Обновляем Layout панели
 		if c.Parent != nil {
-			c.Parent.Layout()
+			// Если это центр-панель — используем двухколоночный layout
+			if c.Parent == c.Parent.UI.CenterPanel {
+				c.Parent.UI.layoutCenterTwoColumns()
+			} else {
+				c.Parent.Layout()
+			}
 		}
 		return
 	}
