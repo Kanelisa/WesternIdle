@@ -421,7 +421,7 @@ func (ui *UI) initPanels() {
 	// ---------------- INITIAL BUILD ----------------
 	ui.ActiveTab = "main"
 
-	// 🔹 Важно: buildLocationPanel вызываем **после того, как State уже содержит Locations**
+	// buildLocationPanel вызываем после того, как State уже содержит Locations
 	ui.buildLocationPanel() // создаём кнопки локаций
 	ui.buildCenterPanel()   // создаём категории действий
 }
@@ -512,6 +512,42 @@ func (ui *UI) updateLocationHighlight() {
 }
 
 //------------Центральная панель действий----------------------
+
+func (ui *UI) layoutCenterTwoColumns() {
+	panel := ui.CenterPanel
+
+	padding := 10.0
+	spacing := 10.0
+	columnGap := 10.0
+
+	availableWidth := panel.Width - padding*2 - columnGap
+	columnWidth := availableWidth / 2
+
+	leftX := panel.X + padding
+	rightX := leftX + columnWidth + columnGap
+
+	currentYLeft := panel.Y + padding
+	currentYRight := panel.Y + padding
+
+	for _, el := range panel.Elements {
+		cat, ok := el.(*UICategory)
+		if !ok {
+			continue
+		}
+
+		cat.Width = columnWidth
+
+		if cat.Title == "Дуэли" {
+			cat.X = rightX
+			currentYRight = cat.Layout(currentYRight)
+			currentYRight += spacing
+		} else {
+			cat.X = leftX
+			currentYLeft = cat.Layout(currentYLeft)
+			currentYLeft += spacing
+		}
+	}
+}
 
 func (ui *UI) buildCenterPanel() {
 	ui.CenterPanel.Elements = nil // очищаем перед построением
@@ -640,7 +676,7 @@ func (ui *UI) buildCenterPanel() {
 	}
 
 	// расставляем кнопки внутри категорий по вертикали
-	ui.CenterPanel.Layout()
+	ui.layoutCenterTwoColumns()
 }
 
 //
@@ -651,6 +687,7 @@ func (ui *UI) Update() {
 
 	// 1️⃣ Layout (пересчёт координат)
 	ui.LeftPanel.Layout()
+	ui.layoutCenterTwoColumns()
 
 	// 2️⃣ Hover reset
 	ui.HoveredButton = nil
