@@ -1,15 +1,11 @@
 package system
 
 //
-// ---------- RESOURCE TYPE ----------
+// ---------- КОНСТАНТЫ РЕСУРСОВ ----------
 //
 
 // Resource — тип ресурса
 type Resource string
-
-//
-// ---------- КОНСТАНТЫ РЕСУРСОВ ----------
-//
 
 const (
 	ResourceMoney    Resource = "money"

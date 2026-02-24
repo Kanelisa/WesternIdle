@@ -1,6 +1,7 @@
 package system
 
 import (
+	"WesternIdle/internal/inventory"
 	"time"
 )
 
@@ -18,6 +19,9 @@ type GameState struct {
 	CurrentLocation *Location
 	//--------Сейв----------
 	LastSaveTime time.Time
+	//------Инвентарь-------
+	Inventory *inventory.Inventory
+	Equipment *inventory.Equipment
 }
 
 // ---------------- Start Action ----------------
@@ -225,7 +229,9 @@ func LoadGame() *GameState {
 		MaxResources: DefaultMaxResources(),
 		Log:          []string{},
 		LastSaveTime: time.Now(),
-		Locations:    make(map[string]*Location), // <- важно!
+		Locations:    make(map[string]*Location),
+		Inventory:    inventory.NewInventory(),
+		Equipment:    inventory.NewEquipment(),
 	}
 
 	// Инициализируем локации

@@ -10,6 +10,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/text/v2"
 	_ "github.com/jezek/xgb/res"
 
+	"WesternIdle/internal/inventory"
 	"WesternIdle/internal/system"
 	"sort"
 )
@@ -327,17 +328,19 @@ func (ui *UI) drawTooltip(screen *ebiten.Image) {
 }
 
 type UI struct {
-	State          *system.GameState
-	GameFont       text.Face
-	LeftPanel      *Panel
-	LocationsPanel *Panel
-	CenterPanel    *Panel
-	RightPanel     *Panel
-	OnAction       func(id string, duration float64)
-	Notification   *Notification
-	lastLogIndex   int
-	HoveredButton  *UIButton
-	ActiveTab      string
+	State            *system.GameState
+	GameFont         text.Face
+	LeftPanel        *Panel
+	LocationsPanel   *Panel
+	CenterPanel      *Panel
+	RightPanel       *Panel
+	OnAction         func(id string, duration float64)
+	Notification     *Notification
+	lastLogIndex     int
+	HoveredButton    *UIButton
+	ActiveTab        string
+	SelectedSlot     inventory.SlotType
+	InventorySubMode string // "" или "select"
 }
 
 func NewUI(state *system.GameState, font text.Face, onAction func(id string, duration float64)) *UI {
@@ -657,36 +660,151 @@ func (ui *UI) buildCenterPanel() {
 		}
 
 	case "inventory":
-		invCategory := &UICategory{
-			Title:    "Инвентарь",
-			X:        panelOffsetX,
-			Y:        topY,
-			Width:    panelWidth,
-			HeaderH:  28,
-			Expanded: true,
-			Font:     ui.GameFont,
-			Parent:   ui.CenterPanel,
+		if ui.InventorySubMode == "select" {
+			ui.buildSlotSelection()
+		} else {
+			ui.buildInventoryMain()
 		}
-
-		for res := range ui.State.Resources {
-			text := fmt.Sprintf("%s: %.1f",
-				system.ResourceDisplayName(res),
-				ui.State.GetResource(res),
-			)
-			label := &UIButton{
-				Text:   text,
-				Width:  panelWidth,
-				Height: 28,
-				Color:  color.RGBA{80, 60, 40, 255},
-				Font:   ui.GameFont,
-			}
-			invCategory.Elements = append(invCategory.Elements, label)
-		}
-		ui.CenterPanel.Elements = append(ui.CenterPanel.Elements, invCategory)
 	}
 
 	// расставляем кнопки внутри категорий по вертикали
 	ui.layoutCenterTwoColumns()
+}
+
+//-----------INVENTORY--------------
+
+func (ui *UI) buildInventoryMain() {
+	panel := ui.CenterPanel
+	panel.Elements = nil
+
+	cat := &UICategory{
+		Title:    "Экипировка",
+		X:        panel.X + 10,
+		Y:        panel.Y + 10,
+		Width:    panel.Width - 20,
+		HeaderH:  30,
+		Font:     ui.GameFont,
+		Parent:   panel,
+		Expanded: true,
+	}
+
+	yOffset := 0.0
+
+	for _, slot := range inventory.AllSlots {
+
+		// 1️⃣ Название слота
+		label := &UIButton{
+			Text:   slot.DisplayName(),
+			Width:  120,
+			Height: 30,
+			X:      cat.X,
+			Y:      cat.Y + cat.HeaderH + yOffset,
+			Font:   ui.GameFont,
+		}
+
+		// 2️⃣ Кнопка предмета
+		equipped := ui.State.Equipment.Slots[slot]
+
+		itemText := "Пусто"
+		if equipped != nil {
+			itemText = equipped.Name
+		}
+
+		itemBtn := &UIButton{
+			Text:   itemText,
+			Width:  200,
+			Height: 30,
+			X:      label.X + 130,
+			Y:      label.Y,
+			Font:   ui.GameFont,
+		}
+
+		itemBtn.OnClick = func(s inventory.SlotType) func() {
+			return func() {
+				ui.SelectedSlot = s
+				ui.InventorySubMode = "select"
+				ui.buildCenterPanel()
+			}
+		}(slot)
+
+		// 3️⃣ Кнопка "Снять"
+		unequipBtn := &UIButton{
+			Text:   "Снять",
+			Width:  80,
+			Height: 30,
+			X:      itemBtn.X + 210,
+			Y:      label.Y,
+			Font:   ui.GameFont,
+		}
+
+		unequipBtn.OnClick = func(s inventory.SlotType) func() {
+			return func() {
+				ui.State.Equipment.Unequip(ui.State.Inventory, s)
+				ui.buildCenterPanel()
+			}
+		}(slot)
+
+		cat.Elements = append(cat.Elements, label, itemBtn, unequipBtn)
+		yOffset += 40
+	}
+
+	panel.Elements = append(panel.Elements, cat)
+}
+
+func (ui *UI) buildSlotSelection() {
+	panel := ui.CenterPanel
+	panel.Elements = nil
+
+	cat := &UICategory{
+		Title:    "Выбор предмета",
+		X:        panel.X + 10,
+		Y:        panel.Y + 10,
+		Width:    panel.Width - 20,
+		HeaderH:  30,
+		Font:     ui.GameFont,
+		Parent:   panel,
+		Expanded: true,
+	}
+
+	for _, item := range ui.State.Inventory.Items {
+		if item.Slot != ui.SelectedSlot {
+			continue
+		}
+
+		btn := &UIButton{
+			Text:   item.Name,
+			Width:  300,
+			Height: 30,
+			Font:   ui.GameFont,
+		}
+
+		btn.OnClick = func(id string) func() {
+			return func() {
+				ui.State.Equipment.Equip(ui.State.Inventory, id)
+				ui.InventorySubMode = ""
+				ui.buildCenterPanel()
+			}
+		}(item.ID)
+
+		cat.Elements = append(cat.Elements, btn)
+	}
+
+	// Кнопка "Назад"
+	backBtn := &UIButton{
+		Text:   "Назад",
+		Width:  200,
+		Height: 30,
+		Font:   ui.GameFont,
+	}
+
+	backBtn.OnClick = func() {
+		ui.InventorySubMode = ""
+		ui.buildCenterPanel()
+	}
+
+	cat.Elements = append(cat.Elements, backBtn)
+
+	panel.Elements = append(panel.Elements, cat)
 }
 
 //
