@@ -379,6 +379,7 @@ func (ui *UI) initPanels() {
 		Font:   ui.GameFont,
 		OnClick: func() {
 			ui.ActiveTab = "main"
+			ui.LayoutPanels(900, 600)
 			ui.buildLocationPanel() // показываем кнопки локаций
 			ui.buildCenterPanel()   // перестраиваем категории действий
 		},
@@ -394,7 +395,7 @@ func (ui *UI) initPanels() {
 		Font:   ui.GameFont,
 		OnClick: func() {
 			ui.ActiveTab = "inventory"
-			ui.buildLocationPanel() // очищаем панель локаций
+			ui.LayoutPanels(900, 600)
 			ui.buildCenterPanel()
 		},
 	}
@@ -452,13 +453,14 @@ func (ui *UI) buildLocationPanel() {
 	panelWidth := ui.LocationsPanel.Width - 20
 
 	category := &UICategory{
-		Title:    "Локации",
-		X:        panelOffsetX,
-		Width:    panelWidth,
-		HeaderH:  28,
-		Expanded: true,
-		Font:     ui.GameFont,
-		Color:    color.RGBA{70, 40, 25, 255},
+		Title:       "Локации",
+		X:           panelOffsetX,
+		Width:       panelWidth,
+		HeaderH:     28,
+		Expanded:    true,
+		Collapsible: false,
+		Font:        ui.GameFont,
+		Color:       color.RGBA{70, 40, 25, 255},
 	}
 
 	// Сортировка ID по Order
@@ -501,6 +503,60 @@ func (ui *UI) buildLocationPanel() {
 
 	ui.LocationsPanel.Elements = append(ui.LocationsPanel.Elements, category)
 	ui.LocationsPanel.Layout()
+}
+
+func (ui *UI) LayoutPanels(screenWidth, screenHeight float64) {
+	switch ui.ActiveTab {
+	case "inventory":
+		ui.layoutInventory(screenWidth, screenHeight)
+	default:
+		ui.layoutMain(screenWidth, screenHeight)
+	}
+}
+
+func (ui *UI) layoutMain(screenWidth, screenHeight float64) {
+	// Восстанавливаем стандартное расположение панелей для главной вкладки
+	ui.LeftPanel.X = 0
+	ui.LeftPanel.Y = 0
+	ui.LeftPanel.Width = 160
+	ui.LeftPanel.Height = screenHeight
+
+	ui.LocationsPanel.X = ui.LeftPanel.X + ui.LeftPanel.Width
+	ui.LocationsPanel.Y = 0
+	ui.LocationsPanel.Width = 160
+	ui.LocationsPanel.Height = screenHeight
+
+	ui.CenterPanel.X = ui.LocationsPanel.X + ui.LocationsPanel.Width
+	ui.CenterPanel.Y = 0
+	ui.CenterPanel.Width = 400
+	ui.CenterPanel.Height = screenHeight
+
+	ui.RightPanel.X = ui.CenterPanel.X + ui.CenterPanel.Width
+	ui.RightPanel.Y = 0
+	ui.RightPanel.Width = screenWidth - ui.LeftPanel.Width - ui.CenterPanel.Width - ui.LocationsPanel.Width
+	ui.RightPanel.Height = screenHeight
+}
+
+func (ui *UI) layoutInventory(screenWidth, screenHeight float64) {
+	// Левую панель оставляем
+	ui.LeftPanel.X = 0
+	ui.LeftPanel.Y = 0
+	ui.LeftPanel.Height = screenHeight
+
+	// Скрываем панели, которые не нужны
+	ui.LocationsPanel.Elements = nil
+
+	// Оставляем панель с ресурсами
+	ui.RightPanel.X = ui.CenterPanel.X + ui.CenterPanel.Width
+	ui.RightPanel.Y = 0
+	ui.RightPanel.Width = screenWidth - ui.LeftPanel.Width - ui.CenterPanel.Width
+	ui.RightPanel.Height = screenHeight
+
+	// Растягиваем центральную панель
+	ui.CenterPanel.X = ui.LeftPanel.X + ui.LeftPanel.Width
+	ui.CenterPanel.Y = 0
+	ui.CenterPanel.Width = 560
+	ui.CenterPanel.Height = screenHeight
 }
 
 // Новая вспомогательная функция: обновляет цвет кнопок в зависимости от текущей локации
@@ -577,37 +633,40 @@ func (ui *UI) buildCenterPanel() {
 
 		// 1️⃣ Колонка слева
 		longCategory := &UICategory{
-			Title:    "Длительные действия",
-			X:        panelOffsetX,
-			Y:        topY, // верхняя позиция для первой категории
-			Width:    panelWidth,
-			HeaderH:  28,
-			Expanded: true,
-			Font:     ui.GameFont,
-			Parent:   ui.CenterPanel,
+			Title:       "Длительные действия",
+			X:           panelOffsetX,
+			Y:           topY, // верхняя позиция для первой категории
+			Width:       panelWidth,
+			HeaderH:     28,
+			Expanded:    true,
+			Collapsible: true,
+			Font:        ui.GameFont,
+			Parent:      ui.CenterPanel,
 		}
 
 		instantCategory := &UICategory{
-			Title:    "Мгновенные действия",
-			X:        panelOffsetX,
-			Y:        topY, // верхняя позиция; Layout для кнопок внутри категории сдвинет их вниз
-			Width:    panelWidth,
-			HeaderH:  28,
-			Expanded: true,
-			Font:     ui.GameFont,
-			Parent:   ui.CenterPanel,
+			Title:       "Мгновенные действия",
+			X:           panelOffsetX,
+			Y:           topY, // верхняя позиция; Layout для кнопок внутри категории сдвинет их вниз
+			Width:       panelWidth,
+			HeaderH:     28,
+			Expanded:    true,
+			Collapsible: true,
+			Font:        ui.GameFont,
+			Parent:      ui.CenterPanel,
 		}
 
 		// 2️⃣ Колонка справа — Дуэли
 		duelCategory := &UICategory{
-			Title:    "Дуэли",
-			X:        panelOffsetX + panelWidth + 5, // смещение вправо
-			Y:        topY,                          // верхняя позиция параллельно первым категориям
-			Width:    panelWidth,
-			HeaderH:  28,
-			Expanded: true,
-			Font:     ui.GameFont,
-			Parent:   ui.CenterPanel,
+			Title:       "Дуэли",
+			X:           panelOffsetX + panelWidth + 5, // смещение вправо
+			Y:           topY,                          // верхняя позиция параллельно первым категориям
+			Width:       panelWidth,
+			HeaderH:     28,
+			Expanded:    true,
+			Collapsible: true,
+			Font:        ui.GameFont,
+			Parent:      ui.CenterPanel,
 		}
 
 		// создаём кнопки для текущей локации
@@ -678,31 +737,44 @@ func (ui *UI) buildInventoryMain() {
 	panel.Elements = nil
 
 	cat := &UICategory{
-		Title:    "Экипировка",
-		X:        panel.X + 10,
-		Y:        panel.Y + 10,
-		Width:    panel.Width - 20,
-		HeaderH:  30,
-		Font:     ui.GameFont,
-		Parent:   panel,
-		Expanded: true,
+		Title:       "Экипировка",
+		X:           panel.X + 10,
+		Y:           panel.Y + 10,
+		Width:       panel.Width - 20,
+		Collapsible: false,
+		HeaderH:     30,
+		Font:        ui.GameFont,
+		Parent:      panel,
+		Expanded:    true,
 	}
 
-	yOffset := 0.0
+	spacing := 10.0
+	rowHeight := 40.0
+
+	startY := cat.Y + cat.HeaderH
+	currentY := startY
+
+	// Делим ширину на 3 колонки
+	totalWidth := cat.Width
+	colWidth := (totalWidth - spacing*2) / 3
+
+	col1X := cat.X
+	col2X := col1X + colWidth + spacing
+	col3X := col2X + colWidth + spacing
 
 	for _, slot := range inventory.AllSlots {
 
-		// 1️⃣ Название слота
+		// --- 1️⃣ Название слота ---
 		label := &UIButton{
 			Text:   slot.DisplayName(),
-			Width:  120,
+			Width:  colWidth,
 			Height: 30,
-			X:      cat.X,
-			Y:      cat.Y + cat.HeaderH + yOffset,
+			X:      col1X,
+			Y:      currentY,
 			Font:   ui.GameFont,
 		}
 
-		// 2️⃣ Кнопка предмета
+		// --- 2️⃣ Надетый предмет ---
 		equipped := ui.State.Equipment.Slots[slot]
 
 		itemText := "Пусто"
@@ -712,10 +784,10 @@ func (ui *UI) buildInventoryMain() {
 
 		itemBtn := &UIButton{
 			Text:   itemText,
-			Width:  200,
+			Width:  colWidth,
 			Height: 30,
-			X:      label.X + 130,
-			Y:      label.Y,
+			X:      col2X,
+			Y:      currentY,
 			Font:   ui.GameFont,
 		}
 
@@ -727,13 +799,13 @@ func (ui *UI) buildInventoryMain() {
 			}
 		}(slot)
 
-		// 3️⃣ Кнопка "Снять"
+		// --- 3️⃣ Снять ---
 		unequipBtn := &UIButton{
 			Text:   "Снять",
-			Width:  80,
+			Width:  colWidth,
 			Height: 30,
-			X:      itemBtn.X + 210,
-			Y:      label.Y,
+			X:      col3X,
+			Y:      currentY,
 			Font:   ui.GameFont,
 		}
 
@@ -745,7 +817,8 @@ func (ui *UI) buildInventoryMain() {
 		}(slot)
 
 		cat.Elements = append(cat.Elements, label, itemBtn, unequipBtn)
-		yOffset += 40
+
+		currentY += rowHeight
 	}
 
 	panel.Elements = append(panel.Elements, cat)
@@ -756,14 +829,15 @@ func (ui *UI) buildSlotSelection() {
 	panel.Elements = nil
 
 	cat := &UICategory{
-		Title:    "Выбор предмета",
-		X:        panel.X + 10,
-		Y:        panel.Y + 10,
-		Width:    panel.Width - 20,
-		HeaderH:  30,
-		Font:     ui.GameFont,
-		Parent:   panel,
-		Expanded: true,
+		Title:       "Выбор предмета",
+		X:           panel.X + 10,
+		Y:           panel.Y + 10,
+		Width:       panel.Width - 20,
+		HeaderH:     30,
+		Font:        ui.GameFont,
+		Parent:      panel,
+		Expanded:    true,
+		Collapsible: false,
 	}
 
 	for _, item := range ui.State.Inventory.Items {
@@ -790,11 +864,18 @@ func (ui *UI) buildSlotSelection() {
 	}
 
 	// Кнопка "Назад"
+	backBtnWidth := 120.0
+	backBtnHeight := 35.0
+	padding := 10.0
+
 	backBtn := &UIButton{
 		Text:   "Назад",
-		Width:  200,
-		Height: 30,
+		Width:  backBtnWidth,
+		Height: backBtnHeight,
+		X:      ui.CenterPanel.X + ui.CenterPanel.Width - backBtnWidth - padding,
+		Y:      ui.CenterPanel.Y + padding,
 		Font:   ui.GameFont,
+		Color:  color.RGBA{100, 60, 40, 255},
 	}
 
 	backBtn.OnClick = func() {
@@ -1025,15 +1106,16 @@ func (ui *UI) drawResources(screen *ebiten.Image) {
 //
 
 type UICategory struct {
-	Title    string
-	X, Y     float64
-	Width    float64
-	HeaderH  float64
-	Expanded bool
-	Font     text.Face
-	Color    color.RGBA
-	Elements []UIElement
-	Parent   *Panel
+	Title       string
+	X, Y        float64
+	Width       float64
+	HeaderH     float64
+	Expanded    bool
+	Collapsible bool
+	Font        text.Face
+	Color       color.RGBA
+	Elements    []UIElement
+	Parent      *Panel
 }
 
 func (c *UICategory) Draw(screen *ebiten.Image) {
@@ -1065,7 +1147,9 @@ func (c *UICategory) HandleClick(mx, my int) {
 	if float64(mx) >= c.X && float64(mx) <= c.X+c.Width &&
 		float64(my) >= c.Y && float64(my) <= c.Y+c.HeaderH {
 
-		c.Expanded = !c.Expanded
+		if c.Collapsible {
+			c.Expanded = !c.Expanded
+		}
 
 		// Обновляем Layout панели
 		if c.Parent != nil {
@@ -1091,9 +1175,31 @@ func (c *UICategory) Layout(startY float64) float64 {
 	c.Y = startY
 	currentY := startY + c.HeaderH
 
+	// 🔥 Если это вкладка инвентаря — не автолейаутим элементы
+	if c.Parent != nil &&
+		c.Parent.UI != nil &&
+		c.Parent.UI.ActiveTab == "inventory" {
+
+		// Просто считаем нижнюю границу по уже выставленным Y
+		maxY := currentY
+
+		for _, el := range c.Elements {
+			if btn, ok := el.(*UIButton); ok {
+				bottom := btn.Y + btn.Height
+				if bottom > maxY {
+					maxY = bottom
+				}
+			}
+		}
+
+		return maxY
+	}
+
+	// ---------- СТАРЫЙ layout для остальных вкладок ----------
+
 	if c.Expanded {
-		topPadding := 5.0 // отступ первой кнопки от хедера
-		spacing := 5.0    // отступ между остальными кнопками
+		topPadding := 5.0
+		spacing := 5.0
 
 		for i, el := range c.Elements {
 			if btn, ok := el.(*UIButton); ok {
@@ -1109,7 +1215,7 @@ func (c *UICategory) Layout(startY float64) float64 {
 			}
 		}
 	}
-	//Возвращает текущий Y для следующей категории
+
 	return currentY
 }
 

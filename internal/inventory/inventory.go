@@ -73,6 +73,7 @@ func (inv *Inventory) Remove(id string, amount int) bool {
 type Item struct {
 	ID       string
 	Name     string
+	Type     string
 	Slot     SlotType // В какой слот можно надеть
 	Quantity int
 	// Бонусы (можно расширять)
@@ -85,6 +86,10 @@ type Item struct {
 
 type Equipment struct {
 	Slots map[SlotType]*Item
+}
+
+type EquipWeapon struct {
+	Slots map[SlotType]*Weapon
 }
 
 func NewEquipment() *Equipment {
