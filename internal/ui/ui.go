@@ -153,12 +153,63 @@ type Panel struct {
 	Color         color.RGBA
 	Elements      []UIElement
 	UI            *UI
+	ScrollOffset  float64
 }
 
 func (p *Panel) Draw(screen *ebiten.Image) {
+	// фон панели
 	ebitenutil.DrawRect(screen, p.X, p.Y, p.Width, p.Height, p.Color)
-	for _, e := range p.Elements {
-		e.Draw(screen)
+
+	if len(p.Elements) == 0 {
+		return
+	}
+
+	// вычисляем максимальную высоту содержимого
+	maxY := p.Y
+	for _, el := range p.Elements {
+		if cat, ok := el.(*UICategory); ok {
+			if cat.Expanded {
+				for _, child := range cat.Elements {
+					if btn, ok := child.(*UIButton); ok {
+						bottom := btn.Y + btn.Height
+						if bottom > maxY {
+							maxY = bottom
+						}
+					}
+				}
+			}
+		}
+	}
+
+	contentHeight := maxY - p.Y
+	maxOffset := contentHeight - p.Height
+	if maxOffset < 0 {
+		maxOffset = 0
+	}
+
+	// отрисовываем элементы со смещением
+	for _, el := range p.Elements {
+		if cat, ok := el.(*UICategory); ok {
+			originalY := cat.Y
+			cat.Y -= p.ScrollOffset
+			cat.Draw(screen)
+			cat.Y = originalY
+		} else {
+			el.Draw(screen)
+		}
+	}
+
+	// ---------- SCROLLBAR ----------
+	if maxOffset > 0 {
+		barWidth := 4.0
+		barHeight := p.Height * (p.Height / contentHeight)
+		barX := p.X + p.Width - barWidth - 2
+		barY := p.Y + (p.ScrollOffset/maxOffset)*(p.Height-barHeight)
+
+		// фон полоски
+		ebitenutil.DrawRect(screen, barX, p.Y, barWidth, p.Height, color.RGBA{50, 50, 50, 180})
+		// сам ползунок
+		ebitenutil.DrawRect(screen, barX, barY, barWidth, barHeight, color.RGBA{200, 200, 200, 220})
 	}
 }
 
@@ -945,15 +996,15 @@ func (ui *UI) buildSlotSelection() {
 
 func (ui *UI) Update() {
 
-	// 1️⃣ Layout (пересчёт координат)
+	// Layout (пересчёт координат)
 	ui.LeftPanel.Layout()
 	ui.layoutCenterTwoColumns()
 
-	// 2️⃣ Hover reset
+	// Hover reset
 	ui.HoveredButton = nil
 	mx, my := ebiten.CursorPosition()
 
-	// 3️⃣ Проверка hover
+	// Проверка hover
 	for _, el := range ui.CenterPanel.Elements {
 		if cat, ok := el.(*UICategory); ok && cat.Expanded {
 			for _, child := range cat.Elements {
@@ -966,7 +1017,7 @@ func (ui *UI) Update() {
 		}
 	}
 
-	// 4️⃣ Обновление прогресса кнопок
+	// Обновление прогресса кнопок
 	for _, el := range ui.CenterPanel.Elements {
 		if cat, ok := el.(*UICategory); ok {
 			for _, child := range cat.Elements {
@@ -991,7 +1042,7 @@ func (ui *UI) Update() {
 		}
 	}
 
-	// 5️⃣ Обработка клика (ПОСЛЕ hover)
+	// Обработка клика (ПОСЛЕ hover)
 	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
 		ui.LeftPanel.HandleClick(mx, my)
 		if ui.ActiveTab == "main" {
@@ -1000,7 +1051,7 @@ func (ui *UI) Update() {
 		ui.CenterPanel.HandleClick(mx, my)
 	}
 
-	// 6️⃣ Логи → уведомления
+	// Логи → уведомления
 	if ui.State != nil && len(ui.State.Log) > ui.lastLogIndex {
 
 		last := ui.State.Log[len(ui.State.Log)-1]
@@ -1013,12 +1064,44 @@ func (ui *UI) Update() {
 		ui.lastLogIndex = len(ui.State.Log)
 	}
 
-	// 7️⃣ Таймер уведомления
+	// Таймер уведомления
 	if ui.Notification != nil {
 		ui.Notification.Timer -= 1.0 / 60.0
 		if ui.Notification.Timer <= 0 {
 			ui.Notification = nil
 		}
+	}
+
+	_, wheelY := ebiten.Wheel()
+	panel := ui.CenterPanel
+	panel.ScrollOffset -= wheelY * 20 // скорость прокрутки
+
+	// ограничиваем смещение
+	maxY := panel.Y
+	for _, el := range panel.Elements {
+		if cat, ok := el.(*UICategory); ok {
+			if cat.Expanded {
+				for _, child := range cat.Elements {
+					if btn, ok := child.(*UIButton); ok {
+						bottom := btn.Y + btn.Height
+						if bottom > maxY {
+							maxY = bottom
+						}
+					}
+				}
+			}
+		}
+	}
+	contentHeight := maxY - panel.Y
+	maxOffset := contentHeight - panel.Height
+	if maxOffset < 0 {
+		maxOffset = 0
+	}
+	if panel.ScrollOffset < 0 {
+		panel.ScrollOffset = 0
+	}
+	if panel.ScrollOffset > maxOffset {
+		panel.ScrollOffset = maxOffset
 	}
 }
 
