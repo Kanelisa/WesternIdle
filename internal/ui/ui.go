@@ -737,15 +737,16 @@ func (ui *UI) buildInventoryMain() {
 	panel.Elements = nil
 
 	cat := &UICategory{
-		Title:       "Экипировка",
-		X:           panel.X + 10,
-		Y:           panel.Y + 10,
-		Width:       panel.Width - 20,
-		Collapsible: false,
-		HeaderH:     30,
-		Font:        ui.GameFont,
-		Parent:      panel,
-		Expanded:    true,
+		Title:        "Экипировка",
+		X:            panel.X + 10,
+		Y:            panel.Y + 10,
+		Width:        panel.Width - 20,
+		Collapsible:  false,
+		HeaderH:      30,
+		Font:         ui.GameFont,
+		Parent:       panel,
+		Expanded:     true,
+		ManualLayout: true,
 	}
 
 	spacing := 10.0
@@ -841,6 +842,48 @@ func (ui *UI) buildSlotSelection() {
 	}
 
 	for _, item := range ui.State.Inventory.Items {
+
+		// ----- ЕСЛИ ЭТО ОРУЖИЕ -----
+		if item.Type == "revolver" || item.Type == "rifle" {
+
+			// находим Weapon по ID
+			w := inventory.GetWeaponByID(item.ID)
+			if w == nil {
+				continue
+			}
+
+			valid := false
+			for _, hand := range w.Hands {
+				if hand == ui.SelectedSlot {
+					valid = true
+					break
+				}
+			}
+
+			if !valid {
+				continue
+			}
+
+			btn := &UIButton{
+				Text:   item.Name,
+				Width:  300,
+				Height: 30,
+				Font:   ui.GameFont,
+			}
+
+			btn.OnClick = func(weapon *inventory.Weapon) func() {
+				return func() {
+					ui.State.Equipment.EquipWeapon(ui.State.Inventory, weapon, ui.SelectedSlot)
+					ui.InventorySubMode = ""
+					ui.buildCenterPanel()
+				}
+			}(w)
+
+			cat.Elements = append(cat.Elements, btn)
+			continue
+		}
+
+		// ----- ОБЫЧНЫЙ ПРЕДМЕТ -----
 		if item.Slot != ui.SelectedSlot {
 			continue
 		}
@@ -863,17 +906,26 @@ func (ui *UI) buildSlotSelection() {
 		cat.Elements = append(cat.Elements, btn)
 	}
 
-	// Кнопка "Назад"
-	backBtnWidth := 120.0
-	backBtnHeight := 35.0
-	padding := 10.0
+	// Кнопка назад
+	backCat := &UICategory{
+		Title:        "",
+		X:            panel.X + 10,
+		Y:            panel.Y + 10,
+		Width:        panel.Width - 20,
+		HeaderH:      0,
+		Font:         ui.GameFont,
+		Expanded:     true,
+		Collapsible:  false,
+		ManualLayout: true, // ручной layout
+	}
 
+	// кнопка назад
 	backBtn := &UIButton{
 		Text:   "Назад",
-		Width:  backBtnWidth,
-		Height: backBtnHeight,
-		X:      ui.CenterPanel.X + ui.CenterPanel.Width - backBtnWidth - padding,
-		Y:      ui.CenterPanel.Y + padding,
+		Width:  120,
+		Height: 35,
+		X:      panel.X + panel.Width - 130, // абсолютное положение
+		Y:      panel.Y + 10,
 		Font:   ui.GameFont,
 		Color:  color.RGBA{100, 60, 40, 255},
 	}
@@ -883,9 +935,8 @@ func (ui *UI) buildSlotSelection() {
 		ui.buildCenterPanel()
 	}
 
-	cat.Elements = append(cat.Elements, backBtn)
-
-	panel.Elements = append(panel.Elements, cat)
+	backCat.Elements = append(backCat.Elements, backBtn)
+	panel.Elements = append(panel.Elements, cat, backCat)
 }
 
 //
@@ -1106,16 +1157,17 @@ func (ui *UI) drawResources(screen *ebiten.Image) {
 //
 
 type UICategory struct {
-	Title       string
-	X, Y        float64
-	Width       float64
-	HeaderH     float64
-	Expanded    bool
-	Collapsible bool
-	Font        text.Face
-	Color       color.RGBA
-	Elements    []UIElement
-	Parent      *Panel
+	Title        string
+	X, Y         float64
+	Width        float64
+	HeaderH      float64
+	Expanded     bool
+	Collapsible  bool
+	Font         text.Face
+	Color        color.RGBA
+	Elements     []UIElement
+	Parent       *Panel
+	ManualLayout bool
 }
 
 func (c *UICategory) Draw(screen *ebiten.Image) {
@@ -1176,9 +1228,7 @@ func (c *UICategory) Layout(startY float64) float64 {
 	currentY := startY + c.HeaderH
 
 	// 🔥 Если это вкладка инвентаря — не автолейаутим элементы
-	if c.Parent != nil &&
-		c.Parent.UI != nil &&
-		c.Parent.UI.ActiveTab == "inventory" {
+	if c.ManualLayout {
 
 		// Просто считаем нижнюю границу по уже выставленным Y
 		maxY := currentY

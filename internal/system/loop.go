@@ -236,6 +236,7 @@ func LoadGame() *GameState {
 
 	// Инициализируем локации
 	InitLocations(state)
+	state.Inventory.Add(inventory.ColtNavy1851.Item)
 
 	// Первая локация по умолчанию
 	if loc, ok := state.Locations["dust_town"]; ok {

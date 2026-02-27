@@ -18,14 +18,14 @@ type Weapon struct {
 var ColtNavy1851 = Weapon{
 	Item: Item{
 		ID:   "colt_navy_1851_unitary",
-		Name: "Colt Navy 1851 (унитарный)",
+		Name: "Colt Navy 1851",
 		Type: "revolver",
 	},
 	WeaponType:  "revolver",
 	Damage:      25,
 	Range:       50,
 	ReloadTime:  4.0,
-	AmmoType:    "unitary",
+	AmmoType:    "unitary_revolver",
 	Capacity:    6,
 	Hands:       []SlotType{SlotWeapon, SlotOffHand},
 	TwoHanded:   false, // одноручное оружие
@@ -33,19 +33,13 @@ var ColtNavy1851 = Weapon{
 }
 
 // EquipWeapon экипирует оружие в выбранный слот
-func (e *Equipment) EquipWeapon(w *Weapon, preferredSlot SlotType) {
+func (e *Equipment) EquipWeapon(inv *Inventory, w *Weapon, preferredSlot SlotType) {
+
 	if e.Slots == nil {
 		e.Slots = make(map[SlotType]*Item)
 	}
 
-	// Двуручное оружие — занимает сразу оба слота
-	if w.TwoHanded {
-		e.Slots[SlotWeapon] = &w.Item
-		e.Slots[SlotOffHand] = &w.Item
-		return
-	}
-
-	// Проверка, чтобы preferredSlot был разрешён для данного оружия
+	// --- 1. Проверка допустимого слота ---
 	valid := false
 	for _, s := range w.Hands {
 		if s == preferredSlot {
@@ -53,16 +47,66 @@ func (e *Equipment) EquipWeapon(w *Weapon, preferredSlot SlotType) {
 			break
 		}
 	}
-	if !valid && len(w.Hands) > 0 {
+	if !valid {
 		preferredSlot = w.Hands[0]
 	}
 
-	// Снимаем старый предмет из слота
-	if oldItem, exists := e.Slots[preferredSlot]; exists {
-		// здесь можно вернуть старое оружие в инвентарь, если нужно
-		_ = oldItem
+	// --- 2. Если оружие уже экипировано в другой руке ---
+	for slot, equipped := range e.Slots {
+		if equipped.ID == w.ID {
+
+			// Если это тот же самый слот — ничего не делаем
+			if slot == preferredSlot {
+				return
+			}
+
+			// Удаляем из старого слота (перемещение, НЕ в инвентарь)
+			delete(e.Slots, slot)
+		}
 	}
 
-	// Экипируем оружие
+	// --- 3. Если новое оружие двуручное ---
+	if w.TwoHanded {
+
+		// Снимаем оба слота
+		for _, slot := range []SlotType{SlotWeapon, SlotOffHand} {
+			if oldItem, exists := e.Slots[slot]; exists {
+				inv.Add(*oldItem)
+				delete(e.Slots, slot)
+			}
+		}
+
+		e.Slots[SlotWeapon] = &w.Item
+		e.Slots[SlotOffHand] = &w.Item
+		return
+	}
+
+	// --- 4. Если стоит двуручное — снять полностью ---
+	if main, ok := e.Slots[SlotWeapon]; ok {
+		if off, ok2 := e.Slots[SlotOffHand]; ok2 && main.ID == off.ID {
+			inv.Add(*main)
+			delete(e.Slots, SlotWeapon)
+			delete(e.Slots, SlotOffHand)
+		}
+	}
+
+	// --- 5. Если в выбранном слоте есть другое оружие ---
+	if oldItem, exists := e.Slots[preferredSlot]; exists {
+		inv.Add(*oldItem)
+		delete(e.Slots, preferredSlot)
+	}
+
+	// --- 6. Экипируем ---
 	e.Slots[preferredSlot] = &w.Item
+}
+
+var WeaponRegistry = map[string]*Weapon{
+	ColtNavy1851.ID: &ColtNavy1851,
+}
+
+func GetWeaponByID(id string) *Weapon {
+	if w, ok := WeaponRegistry[id]; ok {
+		return w
+	}
+	return nil
 }
